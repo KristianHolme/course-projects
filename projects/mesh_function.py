@@ -2,10 +2,15 @@ import numpy as np
 
 
 def mesh_function(f, t):
-    pass
+   return np.array([f(t[i]) for i in range(len(t))])
+   
 
 def func(t):
-    pass
+    if 0 <= t and t <= 3:
+        return np.exp(-t)
+    elif 3 < t and t <= 4:
+        return np.exp(-3*t)
+    
 
 def test_mesh_function():
     t = np.array([1, 2, 3, 4])
