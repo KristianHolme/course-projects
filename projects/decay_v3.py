@@ -1,5 +1,7 @@
 from numpy import *
+from numba import jit
 
+@jit
 def solver(I, a, T, dt, theta):
     """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt."""
     dt = float(dt)            # avoid integer division
@@ -15,6 +17,13 @@ def solver(I, a, T, dt, theta):
 
 def u_exact(t, I, a):
     return I*exp(-a*t)
+
+def amplification_factor(theta, a, dt):
+    return (1 - (1-theta)*a*dt)/(1 + theta*dt*a)
+
+def exact_amplification_factor(a, dt):
+    return np.exp(-a*dt)
+    
 
 from matplotlib.pyplot import *
 
