@@ -46,11 +46,14 @@ class Wave1D:
         The returned matrix is not divided by dx**2
         """
         D = sparse.diags([1, -2, 1], [-1, 0, 1], (self.N+1, self.N+1), 'lil')
-        if bc == 1: # Neumann condition is baked into stencil
-            raise NotImplementedError
+        if bc['left'] == 1: # Neumann condition is baked into stencil
+            D[0,1] = 2
 
-        elif bc == 3: # periodic (Note u[0] = u[-1])
-            raise NotImplementedError
+        elif bc['left'] == 3 and bc['right'] == 3: # periodic (Note u[0] = u[-1])
+            D[0,-2] = 1
+            
+        if bc['right'] == 1: # Neumann condition is baked into stencil
+            D[-1,-2] = 2
 
         return D
 
@@ -71,18 +74,39 @@ class Wave1D:
 
         """
         u = u if u is not None else self.unp1
-        if bc == 0: # Dirichlet condition
+        un = self.un
+        unm1 = self.unm1
+        cr = self.c*self.dt/self.dx
+        
+        if bc['left'] == 0: # Dirichlet condition
             u[0] = 0
-            u[-1] = 0
 
-        elif bc == 1: # Neumann condition
+        elif bc['left'] == 1: # Neumann condition
             pass
 
-        elif bc == 2: # Open boundary
-            raise NotImplementedError
+        elif bc['left'] == 2: # Open boundary
+            u[0] = 2*(1-cr)*un[0] - (1-cr)/(1+cr)*unm1[0] + 2*cr**2/(1+cr) * un[1]
 
-        elif bc == 3:
-            raise NotImplementedError
+        elif bc['left'] == 3: # periodic bc
+            if bc['right'] != 3:
+                raise RuntimeError(f"cannot have one-sided periodic bc. bc = {bc}")
+            u[-1] = u[0]
+
+        else:
+            raise RuntimeError(f"Wrong bc = {bc}")
+        
+        if bc['right'] == 0: # Dirichlet condition
+            u[-1] = 0
+
+        elif bc['right'] == 1: # Neumann condition
+            pass
+
+        elif bc['right'] == 2: # Open boundary
+            u[-1] = 2*(1-cr)*un[-1] - (1-cr)/(1+cr)*unm1[-1] + 2*cr**2/(1+cr) * un[-2]
+
+        elif bc['right'] == 3: # periodic bc
+            if bc['left'] != 3:
+                raise RuntimeError(f"cannot have one-sided periodic bc. bc = {bc}")
 
         else:
             raise RuntimeError(f"Wrong bc = {bc}")
@@ -91,7 +115,7 @@ class Wave1D:
     def dt(self):
         return self.cfl*self.dx/self.c
 
-    def __call__(self, Nt, cfl=None, bc=0, ic=0, save_step=100):
+    def __call__(self, Nt, cfl=None, bc={'left':0, 'right':0}, ic=0, save_step=100):
         """Solve wave equation
 
         Parameters
@@ -120,10 +144,16 @@ class Wave1D:
         each value is an array of length N+1
 
         """
+        #Accept both dict and single number for bc
+        if not isinstance(bc, dict):
+            bc = {'left': bc, 'right':bc}
+            
         D = self.D2(bc)
         self.cfl = C = self.cfl if cfl is None else cfl
         dt = self.dt
         u0 = sp.lambdify(x, self.u0.subs({L: self.L, c: self.c, t: 0}))
+        
+        
 
         # First step. Set un and unm1
         self.unm1[:] = u0(self.x) # unm1 = u(x, 0)
@@ -199,9 +229,9 @@ def test_pulse_bcs():
 
 
 if __name__ == '__main__':
-    #sol = Wave1D(100, cfl=1, L0=2, c0=1)
-    #data = sol(100, bc=3, save_step=1, ic=1)
-    #sol.animation(data)
-    test_pulse_bcs()
-    #data = sol(200, bc=2, ic=0, save_step=100)
+    sol = Wave1D(100, cfl=1, L0=2, c0=3)
+    data = sol(200, bc={'left':3, 'right':3}, save_step=5, ic=0)
+    sol.animation(data)
+    # test_pulse_bcs()
+    data = sol(200, bc=2, ic=0, save_step=100)
 
